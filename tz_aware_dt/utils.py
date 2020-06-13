@@ -11,7 +11,7 @@ def format_duration(seconds):
     """
     Formats time in seconds as (Dd)HH:MM:SS (time.stfrtime() is not useful for formatting durations).
 
-    :param int seconds: Number of seconds to format
+    :param float seconds: Number of seconds to format
     :return: Given number of seconds as (Dd)HH:MM:SS
     """
     x = '-' if seconds < 0 else ''
