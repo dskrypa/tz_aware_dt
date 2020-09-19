@@ -31,25 +31,16 @@ Library to facilitate working with timezone-aware datetimes
 import logging
 import re
 from datetime import datetime, timedelta
-from _strptime import TimeRE                # Needed to work around timezone handling limitations
 
 import pytz
 from tzlocal import get_localzone
-
-try:
-    import dateparser
-except ImportError:
-    dateparser = None
 
 __all__ = [
     'TZ_LOCAL', 'TZ_UTC', 'ISO8601', 'DATETIME_FMT', 'DATE_FMT', 'TIME_FMT', 'now', 'epoch2str', 'str2epoch',
     'datetime_with_tz', 'localize', 'as_utc'
 ]
-log = logging.getLogger(__name__)
-# Loggers that should not be displayed by default
-logr = {'parse': logging.getLogger(__name__ + '.parse')}
-for logger in logr.values():
-    logger.setLevel(logging.WARNING)
+_parse_log = logging.getLogger(__name__ + '.parse')
+_parse_log.setLevel(logging.WARNING)
 
 TZ_UTC = pytz.utc
 TZ_LOCAL = get_localzone()
@@ -61,11 +52,6 @@ DATE_FMT = '%Y-%m-%d'
 TIME_FMT = '%H:%M:%S %Z'
 TIME_FMT_NO_TZ = '%H:%M:%S'
 TZ_ALIAS_MAP = {'HKT': 'Asia/Hong_Kong', 'NYT': 'America/New_York'}
-
-DT_FMT_TZ_RX = re.compile('(?<!%)%(%%)*(?!%)[zZ]')  # Odd number of preceding % => unescaped %z (i.e., need to tokenize)
-time_re = TimeRE()
-time_re['z'] = r'(?P<z>[+-]\d\d:?[0-5]\d)'          # Allow ':' in timezone offset notation
-time_re['Z'] = r'(?P<Z>[0-9A-Za-z_/+-]+)'           # Allow any timezone possibly supported by pytz
 
 
 def _get_tz(tz):
@@ -80,6 +66,14 @@ def _get_tz(tz):
 
 
 def _tokenize_datetime(dt, fmt):
+    try:
+        time_re = _tokenize_datetime._time_re
+    except AttributeError:
+        from _strptime import TimeRE  # Needed to work around timezone handling limitations
+        time_re = _tokenize_datetime._time_re = TimeRE()
+        time_re['z'] = r'(?P<z>[+-]\d\d:?[0-5]\d)'  # Allow ':' in timezone offset notation
+        time_re['Z'] = r'(?P<Z>[0-9A-Za-z_/+-]+)'  # Allow any timezone possibly supported by pytz
+
     dt = str(dt)
     time_rx = time_re.compile(fmt)
     m = time_rx.match(dt)
@@ -113,16 +107,23 @@ def datetime_with_tz(dt, fmt=DATETIME_FMT, tz=None, use_dateparser=False, dp_kwa
     :param dict dp_kwargs: dateparser keyword arguments to provide to :func:`dateparser.parse`
     :return datetime: A :class:`datetime.datetime` object with tzinfo set
     """
-    _log = logr['parse']
+    try:
+        dt_fmt_search = datetime_with_tz._dt_fmt_search
+    except AttributeError:
+        # Odd number of preceding % => unescaped %z (i.e., need to tokenize)
+        dt_fmt_search = datetime_with_tz._dt_fmt_search = re.compile('(?<!%)%(%%)*(?!%)[zZ]').search
+
     original_dt = dt
     tokens = {}
     if use_dateparser:
-        if dateparser is None:
+        try:
+            import dateparser
+        except ImportError:
             raise RuntimeError('Unable to use_dateparser because the dateparser package is not installed.')
         dp_kwargs = dp_kwargs or {}
         dt = dateparser.parse(dt, **dp_kwargs)
     elif isinstance(dt, str):
-        if DT_FMT_TZ_RX.search(fmt):                # Trade-off: %z without : won't need this, but more conditions
+        if dt_fmt_search(fmt):                      # Trade-off: %z without : won't need this, but more conditions
             tokens = _tokenize_datetime(dt, fmt)    # would be required to tell if tokens should be generated later
             if tz:
                 fmt = fmt.replace('%z', '').replace('%Z', '')
@@ -130,7 +131,7 @@ def datetime_with_tz(dt, fmt=DATETIME_FMT, tz=None, use_dateparser=False, dp_kwa
                 for tok in ('z', 'Z'):
                     if tok in tokens:
                         dbg_fmt = 'Discarding %{}={!r} from {!r} due to provided tz={!r}'
-                        _log.debug(dbg_fmt.format(tok, tokens[tok], original_dt, tz))
+                        _parse_log.debug(dbg_fmt.format(tok, tokens[tok], original_dt, tz))
 
         try:
             dt = datetime.strptime(dt, fmt)
@@ -156,9 +157,11 @@ def datetime_with_tz(dt, fmt=DATETIME_FMT, tz=None, use_dateparser=False, dp_kwa
         else:
             if tokens.get('Z'):             # datetime.strptime discards TZ when provided via %Z but retains it via %z
                 tz = _get_tz(tokens['Z'])
-                _log.debug('Found tz={!r} => {!r} for datetime: {!r}'.format(tokens['Z'], tz, original_dt))
+                _parse_log.debug('Found tz={!r} => {!r} for datetime: {!r}'.format(tokens['Z'], tz, original_dt))
             else:
-                _log.debug('Defaulting to tz={!r} for datetime without %Z or %z: {!r}'.format(TZ_LOCAL, original_dt))
+                _parse_log.debug(
+                    'Defaulting to tz={!r} for datetime without %Z or %z: {!r}'.format(TZ_LOCAL, original_dt)
+                )
                 tz = TZ_LOCAL
         dt = tz.localize(dt)
     return dt
@@ -174,6 +177,7 @@ def now(fmt=DATETIME_FMT, tz=None, as_datetime=False):
     :return str: Current time in the requested format
     """
     tz = _get_tz(tz)
+    # noinspection PyUnresolvedReferences
     dt = TZ_LOCAL.localize(datetime.now())
     if tz != TZ_LOCAL:
         dt = dt.astimezone(tz)

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 from pathlib import Path
 from setuptools import setup
@@ -30,9 +31,9 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8'
+        'Programming Language :: Python :: 3.8',
     ],
     python_requires='~=3.4',
     install_requires=['pytz', 'tzlocal'],
-    extras_require={'dateparser': ['dateparser']}
+    extras_require={'dateparser': ['dateparser'], 'dev': ['pre-commit', 'ipython']},
 )
