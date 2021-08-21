@@ -27,13 +27,12 @@ setup(
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
-    python_requires='~=3.4',
-    install_requires=['pytz', 'tzlocal>=3.0'],
+    python_requires='~=3.6',
+    install_requires=['python-dateutil', 'tzlocal>=3.0'],
     extras_require={'dateparser': ['dateparser'], 'dev': ['pre-commit', 'ipython']},
 )

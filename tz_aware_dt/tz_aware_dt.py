@@ -30,10 +30,11 @@ Library to facilitate working with timezone-aware datetimes
 
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, tzinfo
+from typing import Union, Optional
 
-import pytz
 from tzlocal import get_localzone
+from dateutil.tz import gettz, UTC
 
 __all__ = [
     'TZ_LOCAL', 'TZ_UTC', 'ISO8601', 'DATETIME_FMT', 'DATE_FMT', 'TIME_FMT', 'now', 'epoch2str', 'str2epoch',
@@ -42,8 +43,8 @@ __all__ = [
 _parse_log = logging.getLogger(__name__ + '.parse')
 _parse_log.setLevel(logging.WARNING)
 
-TZ_UTC = pytz.utc
-TZ_LOCAL = pytz.timezone(get_localzone().key)
+TZ_UTC = UTC
+TZ_LOCAL = gettz(get_localzone().key)  # dateutil's tzlocal does not use the IANA TZDB identifier
 
 ISO8601 = '%Y-%m-%dT%H:%M:%SZ'
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S %Z'
@@ -54,15 +55,14 @@ TIME_FMT_NO_TZ = '%H:%M:%S'
 TZ_ALIAS_MAP = {'HKT': 'Asia/Hong_Kong', 'NYT': 'America/New_York'}
 
 
-def _get_tz(tz):
-    try:
-        return pytz.timezone(tz) if isinstance(tz, str) else tz or TZ_LOCAL
-    except pytz.exceptions.UnknownTimeZoneError as e:
-        tz_name = e.args[0]
-        if tz_name in TZ_ALIAS_MAP:
-            return pytz.timezone(TZ_ALIAS_MAP[tz_name])
-        else:
-            raise e
+def _get_tz(tz: Union[str, None, tzinfo]) -> Optional[tzinfo]:
+    tz_obj = gettz(tz) if isinstance(tz, str) else tz
+    if tz_obj is None:
+        if isinstance(tz, str) and tz in TZ_ALIAS_MAP:
+            return gettz(TZ_ALIAS_MAP[tz])
+        elif tz is None:
+            return TZ_LOCAL
+    return tz_obj
 
 
 def _tokenize_datetime(dt, fmt):
@@ -163,7 +163,8 @@ def datetime_with_tz(dt, fmt=DATETIME_FMT, tz=None, use_dateparser=False, dp_kwa
                     'Defaulting to tz={!r} for datetime without %Z or %z: {!r}'.format(TZ_LOCAL, original_dt)
                 )
                 tz = TZ_LOCAL
-        dt = tz.localize(dt)
+
+        dt = dt.replace(tzinfo=tz)
     return dt
 
 
@@ -177,8 +178,7 @@ def now(fmt=DATETIME_FMT, tz=None, as_datetime=False):
     :return str: Current time in the requested format
     """
     tz = _get_tz(tz)
-    # noinspection PyUnresolvedReferences
-    dt = TZ_LOCAL.localize(datetime.now())
+    dt = datetime.now(TZ_LOCAL)
     if tz != TZ_LOCAL:
         dt = dt.astimezone(tz)
     return dt if as_datetime else dt.strftime(fmt)
@@ -195,8 +195,8 @@ def epoch2str(epoch_ts, fmt=DATETIME_FMT, millis=False, tz=None):
     :return str: The given time in the given format
     """
     tz = _get_tz(tz)
-    dt = datetime.fromtimestamp((epoch_ts // 1000) if millis else epoch_ts)
-    return tz.localize(dt).strftime(fmt)
+    dt = datetime.fromtimestamp((epoch_ts // 1000) if millis else epoch_ts, tz)
+    return dt.strftime(fmt)
 
 
 def str2epoch(dt, fmt=DATETIME_FMT_NO_TZ, millis=False, tz=None):
