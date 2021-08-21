@@ -34,6 +34,6 @@ setup(
         'Programming Language :: Python :: 3.8',
     ],
     python_requires='~=3.4',
-    install_requires=['pytz', 'tzlocal'],
+    install_requires=['pytz', 'tzlocal>=3.0'],
     extras_require={'dateparser': ['dateparser'], 'dev': ['pre-commit', 'ipython']},
 )
