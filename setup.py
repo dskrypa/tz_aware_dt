@@ -33,6 +33,6 @@ setup(
         'Programming Language :: Python :: 3.9',
     ],
     python_requires='~=3.6',
-    install_requires=['python-dateutil', 'tzlocal>=3.0'],
+    install_requires=['python-dateutil', 'tzlocal>=4.1'],
     extras_require={'dateparser': ['dateparser'], 'dev': ['pre-commit', 'ipython']},
 )

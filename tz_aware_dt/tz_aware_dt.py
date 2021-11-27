@@ -44,7 +44,7 @@ _parse_log = logging.getLogger(__name__ + '.parse')
 _parse_log.setLevel(logging.WARNING)
 
 TZ_UTC = UTC
-TZ_LOCAL = gettz(get_localzone().key)  # dateutil's tzlocal does not use the IANA TZDB identifier
+TZ_LOCAL = gettz(get_localzone()._key)  # dateutil's tzlocal does not use the IANA TZDB identifier
 
 ISO8601 = '%Y-%m-%dT%H:%M:%SZ'
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S %Z'
