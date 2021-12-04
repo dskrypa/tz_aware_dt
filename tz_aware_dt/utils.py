@@ -7,28 +7,23 @@ Datetime-related misc utilities
 __all__ = ['format_duration', 'timedelta_to_str']
 
 
-def format_duration(seconds):
+def format_duration(seconds: float) -> str:
     """
     Formats time in seconds as (Dd)HH:MM:SS (time.stfrtime() is not useful for formatting durations).
 
-    :param float seconds: Number of seconds to format
+    :param seconds: Number of seconds to format
     :return: Given number of seconds as (Dd)HH:MM:SS
     """
     x = '-' if seconds < 0 else ''
     m, s = divmod(abs(seconds), 60)
     h, m = divmod(int(m), 60)
     d, h = divmod(h, 24)
-    x = '{}{}d'.format(x, d) if d > 0 else x
-
-    if isinstance(s, int):
-        return '{}{:02d}:{:02d}:{:02d}'.format(x, h, m, s)
-    return '{}{:02d}:{:02d}:{:05.2f}'.format(x, h, m, s)
+    x = f'{x}{d}d' if d > 0 else x
+    return f'{x}{h:02d}:{m:02d}:{s:02d}' if isinstance(s, int) else f'{x}{h:02d}:{m:02d}:{s:05.2f}'
 
 
 def timedelta_to_str(delta):
     m, s = divmod(delta.seconds, 60)
     h, m = divmod(m, 60)
-    td_str = '{:d}:{:02d}:{:02d}'.format(h, m, s)
-    if delta.days != 0:
-        td_str = '{:d}d, {}'.format(delta.days, td_str)
-    return td_str
+    td_str = f'{h:d}:{m:02d}:{s:02d}'
+    return f'{delta.days:d}d, {td_str}' if delta.days != 0 else td_str
