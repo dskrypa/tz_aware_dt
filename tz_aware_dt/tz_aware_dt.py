@@ -28,27 +28,39 @@ Library to facilitate working with timezone-aware datetimes
 :author: Doug Skrypa
 """
 
+from __future__ import annotations
+
 import logging
 import re
 from datetime import datetime, tzinfo
-from typing import Union, Optional, Any
+from typing import Any
 
+from dateutil.tz import UTC, gettz
 from tzlocal import get_localzone
-from dateutil.tz import gettz, UTC
 
 __all__ = [
-    'TZ_LOCAL', 'TZ_UTC', 'ISO8601', 'DATETIME_FMT', 'DATE_FMT', 'TIME_FMT', 'now', 'epoch2str', 'str2epoch',
-    'datetime_with_tz', 'localize', 'as_utc'
+    'TZ_LOCAL',
+    'TZ_UTC',
+    'ISO8601',
+    'DATETIME_FMT',
+    'DATE_FMT',
+    'TIME_FMT',
+    'now',
+    'epoch2str',
+    'str2epoch',
+    'datetime_with_tz',
+    'localize',
+    'as_utc',
 ]
 _parse_log = logging.getLogger(__name__ + '.parse')
 _parse_log.setLevel(logging.WARNING)
 
-DateTime = Union[str, float, datetime]
-TZ = Union[str, tzinfo, None]
+DateTime = str | float | datetime
+TZ = str | tzinfo | None
 
 # region Globals
 TZ_UTC = UTC
-TZ_LOCAL = gettz(get_localzone()._key)  # dateutil's tzlocal does not use the IANA TZDB identifier
+TZ_LOCAL = gettz(get_localzone().key)  # dateutil's tzlocal does not use the IANA TZDB identifier
 
 ISO8601 = '%Y-%m-%dT%H:%M:%SZ'
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S %Z'
@@ -67,7 +79,7 @@ def datetime_with_tz(
     use_dateparser: bool = False,
     dp_kwargs: dict[str, Any] = None,
 ) -> datetime:
-    """
+    r"""
     Converts the given timestamp string to a datetime object, and ensures that its tzinfo is set.
 
     Handles ``%z``=``[+-]\d\d:?[0-5]\d`` (Python's default strptime only supports ``[+-]\d\d[0-5]\d``)\n
@@ -101,9 +113,9 @@ def datetime_with_tz(
         if tz is not None:
             tz = _get_tz(tz)
         else:
-            if tokens.get('Z'):             # datetime.strptime discards TZ when provided via %Z but retains it via %z
+            if tokens.get('Z'):  # datetime.strptime discards TZ when provided via %Z but retains it via %z
                 tz = _get_tz(tokens['Z'])
-                _parse_log.debug('Found tz={!r} => {!r} for datetime: {!r}'.format(tokens['Z'], tz, original_dt))
+                _parse_log.debug(f'Found tz={tokens["Z"]!r} => {tz!r} for datetime: {original_dt!r}')
             else:
                 _parse_log.debug(f'Defaulting to tz={TZ_LOCAL!r} for datetime without %Z or %z: {original_dt!r}')
                 tz = TZ_LOCAL
@@ -112,7 +124,7 @@ def datetime_with_tz(
     return dt
 
 
-def now(fmt: str = DATETIME_FMT, tz: TZ = None, as_datetime: bool = False) -> Union[datetime, str]:
+def now(fmt: str = DATETIME_FMT, tz: TZ = None, as_datetime: bool = False) -> datetime | str:
     """
     Returns the current time in the given format, optionally converted to the given timezone.
 
@@ -188,7 +200,7 @@ def as_utc(dt: DateTime, in_fmt: str = DATETIME_FMT_NO_TZ, out_fmt: str = DATETI
 # region Helper Functions
 
 
-def _get_tz(tz: Union[str, None, tzinfo]) -> Optional[tzinfo]:
+def _get_tz(tz: str | None | tzinfo) -> tzinfo | None:
     tz_obj = gettz(tz) if isinstance(tz, str) else tz
     if tz_obj is None:
         if isinstance(tz, str) and tz in TZ_ALIAS_MAP:
@@ -198,7 +210,7 @@ def _get_tz(tz: Union[str, None, tzinfo]) -> Optional[tzinfo]:
     return tz_obj
 
 
-def _parse_dt_from_str(dt: str, fmt: str, tz: Union[str, tzinfo, None]) -> tuple[datetime, dict[str, str]]:
+def _parse_dt_from_str(dt: str, fmt: str, tz: str | tzinfo | None) -> tuple[datetime, dict[str, str]]:
     try:
         dt_fmt_search = _parse_dt_from_str._dt_fmt_search
     except AttributeError:
@@ -240,6 +252,7 @@ def _tokenize_datetime(dt: str, fmt: str) -> dict[str, str]:
         time_re = _tokenize_datetime._time_re
     except AttributeError:
         from _strptime import TimeRE  # Needed to work around timezone handling limitations
+
         time_re = _tokenize_datetime._time_re = TimeRE()
         time_re['z'] = r'(?P<z>[+-]\d\d:?[0-5]\d)'  # Allow ':' in timezone offset notation
         time_re['Z'] = r'(?P<Z>[0-9A-Za-z_/+-]+)'  # Allow any timezone possibly supported by pytz
@@ -248,7 +261,7 @@ def _tokenize_datetime(dt: str, fmt: str) -> dict[str, str]:
     if not (m := time_rx.match(dt)):
         raise ValueError(f'time data={dt!r} does not match format={fmt!r}')
     elif len(dt) != m.end():
-        raise ValueError(f'unconverted data remains: {dt[m.end():]}')
+        raise ValueError(f'unconverted data remains: {dt[m.end() :]}')
     return m.groupdict()
 
 
@@ -257,5 +270,6 @@ def _recompile_datetime(tokens: dict[str, str], fmt: str) -> str:
     for token, value in tokens.items():
         dt_str = dt_str.replace('%' + token, value)
     return dt_str
+
 
 # endregion
